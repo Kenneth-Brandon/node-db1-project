@@ -6,13 +6,31 @@ const db = require('../data/dbConfig.js');
 const router = express.Router();
 
 // /api/posts
+// router.get('/', (req, res) => {
+//   db('accounts')
+//     .then((accounts) => {
+//       res.json(accounts);
+//     })
+//     .catch((err) => {
+//       res.status(500).json({ message: 'error retrieving accounts', err });
+//     });
+// });
+
 router.get('/', (req, res) => {
-  db('accounts')
+  var sortby;
+  var sortdir;
+  var queryLimit;
+
+  !req.query.sortby ? (sortby = 'budget') : (sortby = req.query.sortby);
+  !req.query.sortdir ? (sortdir = 'desc') : (sortdir = req.query.sortdir);
+  !req.query.limit ? (queryLimit = '10') : (queryLimit = req.query.limit);
+
+  db.select('*')
+    .from('accounts')
+    .orderBy(sortby, sortdir)
+    .limit(queryLimit)
     .then((accounts) => {
-      res.json(accounts);
-    })
-    .catch((err) => {
-      res.status(500).json({ message: 'error retrieving accounts', err });
+      res.status(200).json({ data: accounts });
     });
 });
 
