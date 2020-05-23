@@ -1,7 +1,7 @@
 const express = require('express');
 
 //database access using knex
-const db = require('../data/dbConfig.js');
+const knex = require('../data/dbConfig.js');
 
 const router = express.Router();
 
@@ -16,87 +16,135 @@ const router = express.Router();
 //     });
 // });
 
-router.get('/', (req, res) => {
-  var sortby;
-  var sortdir;
-  var queryLimit;
+router.get('/', async (req, res) => {
+  const query = {
+    limit: req.query.limit ? req.query.limit : 5,
+    sortby: req.query.sortby ? req.query.sortby : 'budget',
+    sortdir: req.query.sortdir ? req.query.sortdir : 'desc',
+  };
 
-  !req.query.sortby ? (sortby = 'budget') : (sortby = req.query.sortby);
-  !req.query.sortdir ? (sortdir = 'desc') : (sortdir = req.query.sortdir);
-  !req.query.limit ? (queryLimit = '10') : (queryLimit = req.query.limit);
+  try {
+    const accounts = await knex
+      .select('*')
+      .table('accounts')
+      .orderBy(query.sortby, query.sortdir)
+      .limit(parseInt(query.limit));
 
-  db.select('*')
-    .from('accounts')
-    .orderBy(sortby, sortdir)
-    .limit(queryLimit)
-    .then((accounts) => {
-      res.status(200).json({ data: accounts });
-    });
+    res.json(accounts);
+  } catch (err) {
+    res
+      .status(500)
+      .json({ errorMessage: 'Server failed to GET accounts', error: err });
+  }
 });
 
-router.get('/:id', (req, res) => {
+// router.get('/:id', (req, res) => {
+//   const { id } = req.params;
+
+//   knex('accounts')
+//     .where({ id })
+//     .then((account) => {
+//       res.json(account);
+//     })
+//     .catch((err) => {
+//       res
+//         .status(500)
+//         .json({ message: 'there was an error retrieving the account', err });
+//     });
+// });
+
+router.get('/:id', async (req, res) => {
   const { id } = req.params;
 
-  db('accounts')
-    .where({ id })
-    .then((account) => {
-      res.json(account);
-    })
-    .catch((err) => {
-      res
-        .status(500)
-        .json({ message: 'there was an error retrieving the account', err });
-    });
+  try {
+    const [account] = await knex('accounts').where({ id });
+    res.json(account);
+  } catch (err) {
+    res
+      .status(500)
+      .json({ errorMessage: 'Server failed to GET accounts', error: err });
+  }
 });
 
 router.post('/', (req, res) => {
-  const accountData = req.body;
-
-  db('accounts')
-    .insert(accountData)
+  knex('accounts')
+    .insert(req.body)
     .then((account) => {
       res.status(201).json(account);
     })
     .catch((err) => {
-      res.status(500).json({ message: 'failed to create new accounts', err });
+      res
+        .status(500)
+        .json({ errorMessage: 'Failed to POST new account', error: err });
     });
 });
 
-router.put('/:id', (req, res) => {
-  const { id } = req.params;
-  const changes = req.body;
+// router.put('/:id', (req, res) => {
+//   const { id } = req.params;
+//   const changes = req.body;
 
-  db('accounts')
-    .where({ id })
-    .update(changes)
-    .then((count) => {
-      if (count) {
-        res.json({ update: count });
-      } else {
-        res.status(404).json({ message: 'invalid id' });
-      }
-    })
-    .catch((error) => {
-      res.status(500).json({ message: 'error updating account', error });
-    });
+//   knex('accounts')
+//     .where({ id })
+//     .update(changes)
+//     .then((count) => {
+//       if (count) {
+//         res.json({ update: count });
+//       } else {
+//         res.status(404).json({ message: 'invalid id' });
+//       }
+//     })
+//     .catch((error) => {
+//       res.status(500).json({ message: 'error updating account', error });
+//     });
+// });
+
+router.put('/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    await knex('accounts').update(req.body).where({ id });
+    res.status(200).json(req.body);
+  } catch (err) {
+    res
+      .status(500)
+      .json({ errorMessage: 'Server unable to PUT account', error: err });
+  }
 });
 
-router.delete('/:id', (req, res) => {
+// router.delete('/:id', (req, res) => {
+//   const { id } = req.params;
+
+//   knex('accounts')
+//     .where({ id })
+//     .del({ id })
+//     .then((count) => {
+//       if (count) {
+//         res.json({ deleted: count });
+//       } else {
+//         res.status(404).json({ message: 'invalid id' });
+//       }
+//     })
+//     .catch((error) => {
+//       res.status(500).json({ message: 'error deleting account', error });
+//     });
+// });
+
+router.delete('/:id', async (req, res) => {
   const { id } = req.params;
 
-  db('accounts')
-    .where({ id })
-    .del({ id })
-    .then((count) => {
-      if (count) {
-        res.json({ deleted: count });
-      } else {
-        res.status(404).json({ message: 'invalid id' });
-      }
-    })
-    .catch((error) => {
-      res.status(500).json({ message: 'error deleting account', error });
-    });
+  try {
+    const [deleted] = await knex('accounts').where({ id });
+    const count = await knex('accounts').del().where({ id });
+    if (count > 0) {
+      res.status(200).json(deleted);
+    } else {
+      res.status(404).json({ errorMessage: 'Invalid id' });
+    }
+  } catch (err) {
+    res
+      .status(500)
+      .json({ errorMessage: 'Server unable to DELETE account', error: err });
+  }
 });
 
 module.exports = router;
